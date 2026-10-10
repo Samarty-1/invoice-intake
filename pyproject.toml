@@ -1,0 +1,29 @@
+[project]
+name = "invoice-intake"
+version = "0.1.0"
+description = "Supplier invoices to checked, bookable data with a local LLM: wrong GST, sums that don't add up, duplicates and changed bank details caught before you pay"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["pypdf>=4", "httpx>=0.27", "pyyaml>=6"]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
+demo = ["fpdf2>=2.7"]
+dev = ["pytest>=8", "fpdf2>=2.7", "fastapi>=0.110", "python-multipart>=0.0.9"]
+
+[project.scripts]
+invoice-intake = "invoice_intake.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+invoice_intake = ["static/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

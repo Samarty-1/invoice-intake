@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>invoice-intake</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#fff; --fg:#1c1c1a; --mut:#6b6b66; --line:#e2e1dc; --acc:#7a3fb8; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141413; --card:#1d1d1b; --fg:#ecebe6; --mut:#9c9b95; --line:#2e2d2a; --acc:#c39bf0; --bad:#ff7b72; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header, main { max-width:1150px; margin:0 auto; padding:16px; }
+  header h1 { margin:0; font-size:1.3rem; } header p { margin:4px 0 0; color:var(--mut); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  textarea { width:100%; min-height:140px; font:12px/1.45 ui-monospace, Consolas, monospace; color:var(--fg); background:var(--bg);
+             border:1px solid var(--line); border-radius:8px; padding:8px; }
+  button, input[type=file] { font:inherit; color:var(--fg); }
+  button { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:var(--bg); font-weight:600; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .muted { color:var(--mut); } .err { color:var(--bad); white-space:pre-wrap; }
+  iframe { width:100%; height:760px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+  .badge { font-size:12px; border:1px solid var(--line); border-radius:99px; padding:1px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>invoice-intake <span id="mode" class="badge"></span></h1>
+  <p>Supplier invoices in; checked, bookable data out. Catches wrong GST, sums that don't add up, duplicates and changed bank details.</p>
+</header>
+<main>
+  <section class="card">
+    <div class="row">
+      <input id="files" type="file" multiple accept="application/pdf" aria-label="Invoice PDFs">
+      <button class="primary" id="run">Check invoices</button>
+      <button id="dl" hidden>Download Xero bills CSV</button>
+    </div>
+    <details><summary class="muted">Supplier list (optional, but it's what catches changed bank details)</summary>
+      <textarea id="suppliers" spellcheck="false" placeholder="suppliers:&#10;  - {name: FreshCo Produce Pte. Ltd., uen: 201912345K, gst_reg_no: 201912345K, bank_account: DBS 012-345678-9}"></textarea>
+    </details>
+    <p class="muted">No invoices to hand? <a href="/api/demo.zip">Download the demo set</a> (PDFs plus a supplier list).</p>
+    <div id="error" class="err" role="alert"></div>
+  </section>
+  <iframe id="review" title="Invoice review" hidden></iframe>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let csv = null;
+fetch("/api/status").then((r) => r.json()).then((s) => {
+  $("mode").textContent = s.extractor === "llm" ? "local model" : "rule extractor";
+});
+$("run").onclick = async () => {
+  $("error").textContent = "";
+  if (!$("files").files.length) { $("error").textContent = "Choose some PDF invoices first."; return; }
+  const fd = new FormData();
+  for (const f of $("files").files) fd.append("files", f);
+  fd.append("suppliers", $("suppliers").value);
+  $("run").disabled = true; $("run").textContent = "Reading invoices…";
+  try {
+    const r = await fetch("/api/process", { method: "POST", body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail));
+    $("review").srcdoc = d.review_html; $("review").hidden = false;
+    csv = d.xero_csv; $("dl").hidden = false;
+  } catch (e) { $("error").textContent = e.message; }
+  finally { $("run").disabled = false; $("run").textContent = "Check invoices"; }
+};
+$("dl").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "xero_bills.csv"; a.click();
+};
+</script>
+</body>
+</html>

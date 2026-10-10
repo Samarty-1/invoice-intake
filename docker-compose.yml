@@ -1,0 +1,9 @@
+services:
+  invoice-intake:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      INVOICE_INTAKE_LLM_URL: http://host.docker.internal:1234/v1   # LM Studio / Ollama on the host
+      INVOICE_INTAKE_MODEL: gemma-4-12b-it-qat
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    restart: unless-stopped
